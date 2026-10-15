@@ -1,0 +1,48 @@
+name: Build Injaz APK on Mobile
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: Create Flutter Project & Inject Code
+        run: |
+          flutter create --org com.injaz --project-name injaz_habit_tracker app_build
+          cp my_main.dart app_build/lib/main.dart
+          cd app_build
+          flutter pub add shared_preferences fl_chart flutter_local_notifications timezone
+          flutter pub add flutter_localizations --sdk=flutter
+
+      - name: Add Android Permissions for Notifications
+        run: |
+          MANIFEST="app_build/android/app/src/main/AndroidManifest.xml"
+          sed -i 's/<application/<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"\/><uses-permission android:name="android.permission.VIBRATE"\/><uses-permission android:name="android.permission.POST_NOTIFICATIONS"\/><uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"\/><uses-permission android:name="android.permission.USE_EXACT_ALARM"\/><application/g' "$MANIFEST"
+
+      - name: Build Release APK
+        run: |
+          cd app_build
+          flutter build apk --release --no-tree-shake-icons
+
+      - name: Upload APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Injaz-Habit-Tracker-APK
+          path: app_build/build/app/outputs/flutter-apk/app-release.apk
